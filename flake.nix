@@ -1,21 +1,45 @@
 {
   inputs = {
-    naersk.url = "github:nix-community/naersk/master";
+    flake-utils.url = "github:numtide/flake-utils";
+    naersk.url = "github:nix-community/naersk";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, utils, naersk }:
-    utils.lib.eachDefaultSystem (system:
+  outputs = { self, flake-utils, naersk, nixpkgs }:
+    flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
-        naersk-lib = pkgs.callPackage naersk { };
+        pkgs = (import nixpkgs) {
+          inherit system;
+        };
+
+        naersk' = pkgs.callPackage naersk { };
+
       in
       {
-        defaultPackage = naersk-lib.buildPackage ./.;
-        devShell = with pkgs; mkShell {
-          buildInputs = [ cargo rustc rustfmt pre-commit rustPackages.clippy ];
-          RUST_SRC_PATH = rustPlatform.rustLibSrc;
+        # For `nix build .#broker` and `nix run .#broker`:
+        packages.broker = naersk'.buildPackage {
+          pname = "broker";
+          src = ./.;
+          cargoBuildOptions = opts: opts ++ [ "--bin" "broker" ];
+        };
+
+        # For `nix build .#client` and `nix run .#client`:
+        packages.client = naersk'.buildPackage {
+          pname = "client";
+          src = ./.;
+          cargoBuildOptions = opts: opts ++ [ "--bin" "client" ];
+        };
+
+        # For `nix develop`:
+        devShell = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            rustc
+            cargo
+            rustfmt
+            pre-commit
+            rustPackages.clippy
+          ];
+          RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
         };
       }
     );
