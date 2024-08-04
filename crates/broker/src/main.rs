@@ -1,6 +1,6 @@
+use anyhow::{Context, Result};
 use rumqttd::{Broker, Config as BrokerConfig, Notification};
 use shared::SharedConfig;
-use std::error::Error;
 use std::thread;
 use tracing_subscriber;
 
@@ -9,24 +9,30 @@ struct BrokerApp {
 }
 
 impl BrokerApp {
-    fn new() -> Result<Self, Box<dyn Error>> {
-        let config = SharedConfig::broker()?;
+    fn new() -> Result<Self> {
+        let config = SharedConfig::broker().context("Failed to load broker configuration")?;
         Ok(Self { config })
     }
 
-    fn run(self) -> Result<(), Box<dyn Error>> {
+    fn run(self) -> Result<()> {
         let mut broker = Broker::new(self.config);
-        let (mut link_tx, mut link_rx) = broker.link("singlenode")?;
+        let (mut link_tx, mut link_rx) = broker
+            .link("singlenode")
+            .context("Failed to create broker link")?;
 
         thread::spawn(move || {
-            broker.start().unwrap();
+            if let Err(e) = broker.start() {
+                eprintln!("Failed to start broker: {:?}", e);
+            }
         });
 
-        link_tx.subscribe("#")?;
+        link_tx
+            .subscribe("#")
+            .context("Failed to subscribe to topic")?;
 
         let mut count = 0;
         loop {
-            let notification = match link_rx.recv()? {
+            let notification = match link_rx.recv().context("Failed to receive notification")? {
                 Some(v) => v,
                 None => continue,
             };
@@ -42,14 +48,14 @@ impl BrokerApp {
                     );
                 }
                 v => {
-                    println!("{v:?}");
+                    println!("{:?}", v);
                 }
             }
         }
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let builder = tracing_subscriber::fmt()
         .pretty()
         .with_line_number(false)
@@ -59,14 +65,25 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     builder
         .try_init()
-        .expect("initialized subscriber successfully");
+        .map_err(|e| anyhow::anyhow!("Failed to initialize subscriber: {:?}", e))?;
 
-    if let Ok(app) = BrokerApp::new() {
-        app.run()?;
-    } else {
-        eprintln!("Failed to load broker configuration");
-        // Try to recover or exit
-    }
+    let app = BrokerApp::new()?;
+    app.run()?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_broker_app_new() {
+        let result = BrokerApp::new();
+        assert!(
+            result.is_ok(),
+            "Failed to create BrokerApp: {:?}",
+            result.err()
+        );
+    }
 }

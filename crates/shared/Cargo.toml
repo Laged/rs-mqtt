@@ -1,9 +1,13 @@
 [package]
 name = "shared"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rumqttd = "0.19"
-rust-embed = "8.5.0"
-config = "0.14.0"
+anyhow = { workspace = true }
+config = { workspace = true }
+serde = { workspace = true }
+serde_derive = { workspace = true }
+rust-embed = { workspace = true }
+rumqttc = { workspace = true }
+rumqttd = { workspace = true }

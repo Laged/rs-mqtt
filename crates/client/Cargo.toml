@@ -4,10 +4,12 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+anyhow = { workspace = true }
 rumqttc = { workspace = true }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
 config = { workspace = true }
+shared = { path = "../shared" }
 
 [[bin]]
 name = "client"

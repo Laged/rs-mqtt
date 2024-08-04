@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+anyhow = { workspace = true }
 rumqttd = { workspace = true }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }

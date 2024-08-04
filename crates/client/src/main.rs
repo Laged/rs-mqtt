@@ -1,23 +1,67 @@
-use rumqttc::{Client, MqttOptions, QoS};
+use anyhow::{Context, Result};
+use rumqttc::Client;
+use shared::{ClientConfig, SharedConfig};
 use std::thread;
 use std::time::Duration;
 
-fn main() {
-    let mut mqttoptions = MqttOptions::new("rumqtt-sync", "localhost", 1883);
-    mqttoptions.set_keep_alive(Duration::from_secs(5));
+struct ClientApp {
+    config: ClientConfig,
+}
 
-    let (client, mut connection) = Client::new(mqttoptions, 10);
-    client.subscribe("hello/rumqtt", QoS::AtMostOnce).unwrap();
-    thread::spawn(move || {
-        for i in 0..10 {
-            client
-                .publish("hello/rumqtt", QoS::AtLeastOnce, false, vec![i; i as usize])
-                .unwrap();
-            thread::sleep(Duration::from_millis(100));
+impl ClientApp {
+    fn new() -> Result<Self> {
+        let config = SharedConfig::client().context("Failed to load client configuration")?;
+        Ok(Self { config })
+    }
+
+    fn run(self) -> Result<()> {
+        let mqtt_options = self.config.mqtt_options.clone();
+        let (client, mut connection) = Client::new(mqtt_options, 10);
+
+        client
+            .subscribe(&self.config.subscribe_topic, self.config.qos)
+            .context("Failed to subscribe to topic")?;
+
+        let publish_topic = self.config.publish_topic.clone();
+        let qos = self.config.qos;
+        let publish_count = self.config.publish_count;
+        let publish_interval_ms = self.config.publish_interval_ms;
+
+        thread::spawn(move || {
+            for i in 0..publish_count {
+                let payload: Vec<u8> = (0..i).map(|_| i as u8).collect();
+                client
+                    .publish(&publish_topic, qos, false, payload)
+                    .expect("Failed to publish message");
+                thread::sleep(Duration::from_millis(publish_interval_ms));
+            }
+        });
+
+        for (i, notification) in connection.iter().enumerate() {
+            println!("Notification = {:?} ({:?})", notification, i);
         }
-    });
 
-    for (i, notification) in connection.iter().enumerate() {
-        println!("Notification = {:?} ({:?})", notification, i);
+        Ok(())
+    }
+}
+
+fn main() -> Result<()> {
+    let app = ClientApp::new()?;
+    app.run()?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_client_app_new() {
+        let result = ClientApp::new();
+        assert!(
+            result.is_ok(),
+            "Failed to create ClientApp: {:?}",
+            result.err()
+        );
     }
 }
