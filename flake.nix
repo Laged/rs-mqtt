@@ -20,14 +20,12 @@
         packages.broker = naersk'.buildPackage {
           pname = "broker";
           src = ./.;
-          cargoBuildOptions = opts: opts ++ [ "--bin" "broker" ];
         };
 
         # For `nix build .#client` and `nix run .#client`:
         packages.client = naersk'.buildPackage {
           pname = "client";
           src = ./.;
-          cargoBuildOptions = opts: opts ++ [ "--bin" "client" ];
         };
 
         # For `nix develop`:
