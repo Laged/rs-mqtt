@@ -16,6 +16,11 @@
 
       in
       {
+        # A default package for nix build .
+        packages.default= naersk'.buildPackage {
+          pname = "broker";
+          src = ./.;
+        };
         # For `nix build .#broker` and `nix run .#broker`:
         packages.broker = naersk'.buildPackage {
           pname = "broker";

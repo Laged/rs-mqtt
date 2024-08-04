@@ -7,7 +7,7 @@ edition = "2021"
 rumqttd = { workspace = true }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
-config = { workspace = true }
+shared = { path = "../shared" }
 
 [[bin]]
 name = "broker"
